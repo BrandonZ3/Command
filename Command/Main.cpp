@@ -2,10 +2,9 @@
 #include <WS2tcpip.h>
 #include <Windows.h>
 #include <stdio.h>
-#include "Command.h"
-#include "Buffer.h"
-#include "Network.h"
-#include "Files.h"
+#include "../../Library/Command.h"
+#include "../../Library/Strings.h"
+#include "../../Library/Files.h"
 
 #pragma comment(lib, "User32.lib")
 #pragma comment(lib, "Ws2_32.lib")
@@ -14,9 +13,120 @@ bool kill = false;
 sockaddr_in server = { 0 };
 SOCKET client;
 
+struct Escapers
+{
+	size_t started;
+	size_t ended;
+};
+
+Escapers CountEscaped(const char* string)
+{
+	Escapers esc = { 0 };
+
+	size_t stringLength = strlen(string);
+
+	for (size_t i = 0; i < stringLength; i++)
+	{
+		bool found = false;
+
+		if (
+			(string[i] == '\\' && string[i + 1] == '\\') ||
+			(string[i] == '\\' && string[i + 1] == 'r') ||
+			(string[i] == '\\' && string[i + 1] == 'n') ||
+			(string[i] == '\\' && string[i + 1] == 't') ||
+			(string[i] == '\\' && string[i + 1] == '\'') ||
+			(string[i] == '\\' && string[i + 1] == '\"')
+			)
+		{
+			esc.ended += 1;
+			esc.started += 1;
+		}
+		else if (string[i] == '\\')
+		{
+			esc.started += 1;
+		}
+	}
+
+	return esc;
+}
+
+char* ConvertBareText(const char* string)
+{
+	size_t stringLen = strlen(string);
+	Escapers esc = CountEscaped(string);
+
+	if (esc.started == esc.ended)
+	{
+		size_t newLen = (stringLen - (esc.ended));
+
+		char* output = (char*)malloc(newLen + 1);
+		output[newLen] = 0;
+		size_t pos = 0;
+
+		for (size_t i = 0; i < stringLen; i++)
+		{
+			if (string[i] == '\\' && string[i + 1] == '\\')
+			{
+				output[pos] = '\\';
+				pos++;
+				i++;
+				continue;
+			}
+
+			if (string[i] == '\\' && string[i + 1] == 't')
+			{
+				output[pos] = '\t';
+				pos++;
+				i++;
+				continue;
+			}
+
+			if (string[i] == '\\' && string[i + 1] == '\'')
+			{
+				output[pos] = '\'';
+				pos++;
+				i++;
+				continue;
+			}
+
+			if (string[i] == '\\' && string[i + 1] == '\"')
+			{
+				output[pos] = '\"';
+				pos++;
+				i++;
+				continue;
+			}
+
+			if (string[i] == '\\' && string[i + 1] == 'r')
+			{
+				output[pos] = '\r';
+				pos++;
+				i++;
+				continue;
+			}
+
+
+			if (string[i] == '\\' && string[i + 1] == 'n')
+			{
+				output[pos] = '\n';
+				pos++;
+				i++;
+				continue;
+			}
+
+			output[pos] = string[i];
+			pos++;
+		}
+
+		return output;
+	}
+	return NULL;
+}
+
+
 void StandardCommands(Command* comm)
 {
-	if ((StringCompareCaseInsensitive(comm->command, "connect") || StringCompareCaseInsensitive(comm->command, "c")) && comm->arguments->count >= 2)
+	if ((Strings::CompareCaseInsensitive(comm->command, "connect") || Strings::CompareCaseInsensitive(comm->command, "c")) && comm->arguments->count >= 2)
 	{
 		bool ipFound = false;
 		bool portFound = false;
@@ -25,16 +135,15 @@ void StandardCommands(Command* comm)
 
 		for (size_t i = 0; i < comm->arguments->count; i++)
 		{
-			if (IsIp(comm->arguments->items[i]))
+			if (Strings::IsIp((const char*)comm->arguments->items[i]))
 			{
-				server.sin_addr.s_addr = IPToDwordNetwork(comm->arguments->items[i]);
-				//inet_pton(AF_INET, comm->arguments->items[i], &server.sin_addr);
+				server.sin_addr.s_addr = Strings::IPToDwordNetwork((const char*)comm->arguments->items[i]);
 				ipFound = true;
 			}
 
-			if (IsNumeric(comm->arguments->items[i]))
+			if (Strings::IsNumeric((const char*)comm->arguments->items[i]))
 			{
-				unsigned long port = StringToUnsignedDword(comm->arguments->items[i]);
+				unsigned long port = Strings::StringToUnsignedDword((const char*)comm->arguments->items[i]);
 				if (port <= 65535)
 				{
 					server.sin_port = htons(port);
@@ -58,21 +167,21 @@ void StandardCommands(Command* comm)
 		}
 	}
 
-	if ((StringCompareCaseInsensitive(comm->command, "disconnect") || StringCompareCaseInsensitive(comm->command, "d")))
+	if ((Strings::CompareCaseInsensitive(comm->command, "disconnect") || Strings::CompareCaseInsensitive(comm->command, "d")))
 	{
 		closesocket(client);
 		client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	}
 
-	if ((StringCompareCaseInsensitive(comm->command, "send") || StringCompareCaseInsensitive(comm->command, "s")) && comm->flags->count > 0)
+	if ((Strings::CompareCaseInsensitive(comm->command, "send") || Strings::CompareCaseInsensitive(comm->command, "s")) && comm->flags->count > 0)
 	{
 		for (size_t i = 0; i < comm->flags->count; i++)
 		{
-			if (StringCompare(comm->flags->items[i]->key, "-I") && comm->flags->items[i]->value != NULL)
+			if (Strings::Compare(comm->flags->items[i]->key, "-I") && comm->flags->items[i]->value != NULL)
 			{
-				Buffer* buf = ReadFile(comm->flags->items[i]->value, "rb", 16000000);
+				DBuffer* buf = Files::ReadFile(comm->flags->items[i]->value, "rb", 16000000);
 
-				int sent = send(client, (char*)buf->buffer, buf->count, 0);
+				int sent = send(client, (char*)buf->DataPointer(0), buf->count, 0);
 
 				if (sent == buf->count)
 				{
@@ -86,15 +195,13 @@ void StandardCommands(Command* comm)
 				delete buf;
 			}
 
-			if (StringCompare(comm->flags->items[i]->key, "-T") && comm->flags->items[i]->value != NULL)
+			if (Strings::Compare(comm->flags->items[i]->key, "-T") && comm->flags->items[i]->value != NULL)
 			{
 				const char* buf = comm->flags->items[i]->value;
-				//size_t length = strlen(buf);
 
 				char* newS = ConvertBareText(buf);
 				size_t length = strlen(newS);
 
-				//int sent = send(client, buf, length, 0);
 				int sent = send(client, newS, length, 0);
 
 				if (sent == length)
@@ -109,11 +216,11 @@ void StandardCommands(Command* comm)
 				free(newS);
 			}
 
-			if (StringCompare(comm->flags->items[i]->key, "-X") && comm->flags->items[i]->value != NULL)
+			if (Strings::Compare(comm->flags->items[i]->key, "-X") && comm->flags->items[i]->value != NULL)
 			{
-				Buffer* buf = BufferFromHexString(comm->flags->items[i]->value);
+				DBuffer* buf = Strings::BufferFromHexString((const char*)comm->flags->items[i]->value);
 
-				int sent = send(client, (char*)buf->buffer, buf->count, 0);
+				int sent = send(client, (char*)buf->DataPointer(0), buf->count, 0);
 
 				if (sent == buf->count)
 				{
@@ -129,18 +236,17 @@ void StandardCommands(Command* comm)
 		}
 	}
 
-	if ((StringCompareCaseInsensitive(comm->command, "tohex") || StringCompareCaseInsensitive(comm->command, "th")) && comm->flags->count > 0)
+	if ((Strings::CompareCaseInsensitive(comm->command, "tohex") || Strings::CompareCaseInsensitive(comm->command, "th")) && comm->flags->count > 0)
 	{
 		for (size_t i = 0; i < comm->flags->count; i++)
 		{
-			if (StringCompare(comm->flags->items[i]->key, "-T") && comm->flags->items[i]->value != NULL)
+			if (Strings::Compare((const char*)comm->flags->items[i]->key, "-T") && comm->flags->items[i]->value != NULL)
 			{
 				const char* buf = comm->flags->items[i]->value;
-				//size_t length = strlen(buf);
 
 				char* newS = ConvertBareText(buf);
 
-				char* converted = StringToHexString(newS);
+				char* converted = Strings::StringToHexString(newS);
 
 				printf("%s\r\n", converted);
 
@@ -150,24 +256,26 @@ void StandardCommands(Command* comm)
 		}
 	}
 
-	if ((StringCompareCaseInsensitive(comm->command, "hextofloat") || StringCompareCaseInsensitive(comm->command, "htf")))
+	if ((Strings::CompareCaseInsensitive(comm->command, "hextofloat") || Strings::CompareCaseInsensitive(comm->command, "htf")))
 	{
 		if (comm->arguments->count > 0)
 		{
-			int length = strlen(comm->arguments->items[0]);
+			int length = strlen((const char*)comm->arguments->items[0]);
 			if (length == 8 || length == 16)
 			{
-				Buffer* buf = BufferFromHexString(comm->arguments->items[0]);
+				DBuffer* buf = Strings::BufferFromHexString((const char*)comm->arguments->items[0]);
+
+				unsigned char* buffer = buf->DataPointer(0);
 
 				if (length == 8)
 				{
-					uint32_t value = buf->buffer[0] | buf->buffer[1] << 8 | buf->buffer[2] << 16 | buf->buffer[3] << 24;
+					uint32_t value = buffer[0] | buffer[1] << 8 | buffer[2] << 16 | buffer[3] << 24;
 					float* nval = (float*)&value;
 					printf("float32:%f\r\n", *nval);
 				}
 				else
 				{
-					uint64_t value = buf->buffer[0] | buf->buffer[1] << 8 | buf->buffer[2] << 16 | buf->buffer[3] << 24 | buf->buffer[4] << 32 | buf->buffer[5] << 40 | buf->buffer[6] << 48 | buf->buffer[7] << 56;
+					uint64_t value = buffer[0] | buffer[1] << 8 | buffer[2] << 16 | buffer[3] << 24 | buffer[4] << 32 | buffer[5] << 40 | buffer[6] << 48 | buffer[7] << 56;
 					double* nval = (double*)&value;
 					printf("float64:%f\r\n", *nval);
 				}
@@ -180,7 +288,7 @@ void StandardCommands(Command* comm)
 		}
 	}
 
-	if ((StringCompareCaseInsensitive(comm->command, "receive") || StringCompareCaseInsensitive(comm->command, "r")))
+	if ((Strings::CompareCaseInsensitive(comm->command, "receive") || Strings::CompareCaseInsensitive(comm->command, "r")))
 	{
 		char buf[2048] = { 0 };
 		char* filepath = NULL;
@@ -192,29 +300,29 @@ void StandardCommands(Command* comm)
 
 		for (size_t i = 0; i < comm->flags->count; i++)
 		{
-			if (StringCompare(comm->flags->items[i]->key, "-O") && comm->flags->items[i]->value != NULL && !append)
+			if (Strings::Compare(comm->flags->items[i]->key, "-O") && comm->flags->items[i]->value != NULL && !append)
 			{
 				filepath = comm->flags->items[i]->value;
 				output = true;
 			}
 
-			if (StringCompare(comm->flags->items[i]->key, "-A") && comm->flags->items[i]->value != NULL && !output)
+			if (Strings::Compare(comm->flags->items[i]->key, "-A") && comm->flags->items[i]->value != NULL && !output)
 			{
 				filepath = comm->flags->items[i]->value;
 				append = true;
 			}
 
-			if (StringCompare(comm->flags->items[i]->key, "-b") && !headers)
+			if (Strings::Compare(comm->flags->items[i]->key, "-b") && !headers)
 			{
 				body = true;
 			}
 
-			if (StringCompare(comm->flags->items[i]->key, "-h") && !body)
+			if (Strings::Compare(comm->flags->items[i]->key, "-h") && !body)
 			{
 				headers = true;
 			}
 
-			if (StringCompare(comm->flags->items[i]->key, "-H"))
+			if (Strings::Compare(comm->flags->items[i]->key, "-H"))
 			{
 				http = true;
 			}
@@ -224,42 +332,42 @@ void StandardCommands(Command* comm)
 
 		if (filepath)
 		{
-			Buffer* buffer = new Buffer(2048);
+			DBuffer* buffer = new DBuffer(2048);
 			if (http)
 			{
 				if (headers)
 				{
 					const char* test = "aabba";
-					int ind = FirstIndexOf(test, "bb");
+					int ind = Strings::IndexOf(test, "bb", 1);
 
-					int index = FirstIndexOf(buf, "\r\n\r\n");
-					buffer->Add(buf, index);
+					int index = Strings::IndexOf(buf, "\r\n\r\n", 1);
+					buffer->Add((unsigned char*)buf, index);
 				}
 				else if (body)
 				{
-					int index = FirstIndexOf(buf, "\r\n\r\n");
-					buffer->Add(buf + (index + 4), recLength - (index + 4));
+					int index = Strings::IndexOf(buf, "\r\n\r\n", 1);
+					buffer->Add((unsigned char*)(buf + (index + 4)), recLength - (index + 4));
 				}
 				else
 				{
-					buffer->Add(buf, recLength);
+					buffer->Add((unsigned char*)buf, recLength);
 				}
 			}
 			else
 			{
-				buffer->Add(buf, recLength);
+				buffer->Add((unsigned char*)buf, recLength);
 			}
 			if (output)
-				WriteFile(filepath, buffer);
+				Files::WriteFile(filepath, buffer);
 			if (append)
-				AppendFile(filepath, buffer);
+				Files::AppendFile(filepath, buffer);
 			delete buffer;
 		}
 
 		printf("%s\r\n", buf);
 	}
 
-	if ((StringCompareCaseInsensitive(comm->command, "help") || StringCompareCaseInsensitive(comm->command, "h")))
+	if ((Strings::CompareCaseInsensitive(comm->command, "help") || Strings::CompareCaseInsensitive(comm->command, "h")))
 	{
 		const char* information =
 			R"(
@@ -331,7 +439,7 @@ tohex | th - Convert from text string to hex.
 		printf("%s\r\n", information);
 	}
 
-	if ((StringCompareCaseInsensitive(comm->command, "quit") || StringCompareCaseInsensitive(comm->command, "q")))
+	if ((Strings::CompareCaseInsensitive(comm->command, "quit") || Strings::CompareCaseInsensitive(comm->command, "q")))
 	{
 		kill = true;
 	}
@@ -354,24 +462,24 @@ void main()
 
 			if (comm->command)
 			{
-				if ((StringCompareCaseInsensitive(comm->command, "execute") || StringCompareCaseInsensitive(comm->command, "e")))
+				if ((Strings::CompareCaseInsensitive(comm->command, "execute") || Strings::CompareCaseInsensitive(comm->command, "e")))
 				{
 					size_t repeat = 1;
 
 					for (size_t i = 0; i < comm->flags->count; i++)
 					{
-						if (StringCompare(comm->flags->items[i]->key, "-R") && comm->flags->items[i]->value != NULL)
+						if (Strings::Compare(comm->flags->items[i]->key, "-R") && comm->flags->items[i]->value != NULL)
 						{
-							repeat = StringToUnsignedDword((const char*)(comm->flags->items[i]->value));
+							repeat = Strings::StringToUnsignedDword((const char*)(comm->flags->items[i]->value));
 						}
 					}
 
 					if (comm->arguments->count == 1)
 					{
-						Buffer* file = ReadFile(comm->arguments->items[0], "rb", 16000000);
-						file->Add(0);
+						DBuffer* file = Files::ReadFile((char*)comm->arguments->items[0], "rb", 16000000);
+						file->Add((uint8_t)0);
 
-						StringArray* stringArr = Splitter((char*)file->buffer, "\r\n");
+						PointerList* stringArr = PointerList::SplitString((char*)file->DataPointer(0), "\r\n");
 
 
 						while (repeat > 0)
@@ -380,9 +488,9 @@ void main()
 							for (size_t i = 0; i < stringArr->count; i++)
 							{
 								printf("%s\r\n", stringArr->items[i]);
-								if (strlen(stringArr->items[i]) >= 1)
+								if (strlen((const char*)stringArr->items[i]) >= 1)
 								{
-									Command* newCom = new Command(stringArr->items[i]);
+									Command* newCom = new Command((char*)stringArr->items[i]);
 
 									StandardCommands(newCom);
 
