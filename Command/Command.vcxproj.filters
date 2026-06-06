@@ -21,28 +21,28 @@
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Library\DBuffer.cpp">
+    <ClCompile Include="..\..\Library\Base\Bytes.cpp">
       <Filter>Source Files\Library</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Library\Files.cpp">
+    <ClCompile Include="..\..\Library\Systems\Command.cpp">
       <Filter>Source Files\Library</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Library\Strings.cpp">
+    <ClCompile Include="..\..\Library\Containers\DBuffer.cpp">
       <Filter>Source Files\Library</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Library\MemoryManipulation.cpp">
+    <ClCompile Include="..\..\Library\IO\Files.cpp">
       <Filter>Source Files\Library</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Library\Bytes.cpp">
+    <ClCompile Include="..\..\Library\Containers\IntegerList.cpp">
       <Filter>Source Files\Library</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Library\PointerList.cpp">
+    <ClCompile Include="..\..\Library\Base\MemoryManipulation.cpp">
       <Filter>Source Files\Library</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Library\Command.cpp">
+    <ClCompile Include="..\..\Library\Containers\PointerList.cpp">
       <Filter>Source Files\Library</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Library\IntegerList.cpp">
+    <ClCompile Include="..\..\Library\Base\Strings.cpp">
       <Filter>Source Files\Library</Filter>
     </ClCompile>
   </ItemGroup>

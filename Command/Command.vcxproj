@@ -127,14 +127,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Library\Bytes.cpp" />
-    <ClCompile Include="..\..\Library\Command.cpp" />
-    <ClCompile Include="..\..\Library\DBuffer.cpp" />
-    <ClCompile Include="..\..\Library\Files.cpp" />
-    <ClCompile Include="..\..\Library\IntegerList.cpp" />
-    <ClCompile Include="..\..\Library\MemoryManipulation.cpp" />
-    <ClCompile Include="..\..\Library\PointerList.cpp" />
-    <ClCompile Include="..\..\Library\Strings.cpp" />
+    <ClCompile Include="..\..\Library\Base\Bytes.cpp" />
+    <ClCompile Include="..\..\Library\Base\MemoryManipulation.cpp" />
+    <ClCompile Include="..\..\Library\Base\Strings.cpp" />
+    <ClCompile Include="..\..\Library\Containers\DBuffer.cpp" />
+    <ClCompile Include="..\..\Library\Containers\IntegerList.cpp" />
+    <ClCompile Include="..\..\Library\Containers\PointerList.cpp" />
+    <ClCompile Include="..\..\Library\IO\Files.cpp" />
+    <ClCompile Include="..\..\Library\Systems\Command.cpp" />
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

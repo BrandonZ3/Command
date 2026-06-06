@@ -2,9 +2,9 @@
 #include <WS2tcpip.h>
 #include <Windows.h>
 #include <stdio.h>
-#include "../../Library/Command.h"
-#include "../../Library/Strings.h"
-#include "../../Library/Files.h"
+#include "../../Library/Systems/Command.h"
+#include "../../Library/Base/Strings.h"
+#include "../../Library/IO/Files.h"
 
 #pragma comment(lib, "User32.lib")
 #pragma comment(lib, "Ws2_32.lib")
